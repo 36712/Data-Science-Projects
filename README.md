@@ -1,2 +1,3 @@
-# Data-Science-Projects
-# 测试版
+# INFO 442
+# Team members:
+# gjj lsx lc fbl
