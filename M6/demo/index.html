@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MovieLens 100K — Recommender Demo | INFO 442</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --accent: #2a9d8f;
+      --accent2: #457b9d;
+      --text: #e9ecef;
+      --muted: #adb5bd;
+      --star: #f4a261;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid #2d3748;
+      background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%);
+    }
+    header h1 { font-size: 1.4rem; font-weight: 600; }
+    header p { color: var(--muted); margin-top: 0.25rem; font-size: 0.9rem; }
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    select, button {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #3d4f66;
+      background: #0f1419;
+      color: var(--text);
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+    select option {
+      background: #1a2332;
+      color: #e9ecef;
+    }
+    button {
+      background: var(--accent);
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 0;
+    }
+    button:hover { filter: brightness(1.1); }
+    .profile dt { color: var(--muted); font-size: 0.8rem; margin-top: 0.75rem; }
+    .profile dd { font-size: 1rem; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .metric {
+      background: #0f1419;
+      border-radius: 8px;
+      padding: 0.75rem;
+      text-align: center;
+    }
+    .metric .val { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+    .metric .lbl { font-size: 0.7rem; color: var(--muted); }
+    h2 { font-size: 1.1rem; margin-bottom: 1rem; }
+    .cards { display: flex; flex-direction: column; gap: 0.75rem; }
+    .card {
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      gap: 1rem;
+      align-items: center;
+      background: #0f1419;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      border-left: 4px solid var(--accent2);
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
+    .rank { font-size: 1.25rem; font-weight: 700; color: var(--muted); }
+    .title { font-weight: 600; }
+    .year { color: var(--muted); font-size: 0.85rem; }
+    .score { text-align: right; }
+    .stars { color: var(--star); font-size: 0.9rem; }
+    .pred { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+    .history { margin-top: 1.25rem; }
+    .history li {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0.35rem 0;
+      list-style: none;
+    }
+    .history li span { color: var(--star); }
+    footer {
+      text-align: center;
+      padding: 1rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      border-top: 1px solid #2d3748;
+    }
+    .error { color: #e76f51; padding: 1rem; }
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Understanding User Preferences through Latent Factors</h1>
+    <p>MovieLens 100K Recommender System Demo · INFO 442 · Team: Liu · Feng · Guo · Li</p>
+  </header>
+
+  <div class="layout">
+    <aside class="panel">
+      <label for="userSelect">Select User</label>
+      <select id="userSelect"></select>
+
+      <label for="modelSelect">Recommendation Model</label>
+      <select id="modelSelect">
+        <option value="mf">Matrix Factorization (best RMSE)</option>
+        <option value="item_cf">Item-Based CF (best Top-10)</option>
+        <option value="baseline">Bias Baseline</option>
+      </select>
+
+      <button id="btnRecommend" type="button">Get Top-10 Recommendations</button>
+
+      <dl class="profile" id="profile"></dl>
+
+      <div class="metrics" id="metrics"></div>
+
+      <div class="history">
+        <h2 style="font-size:0.9rem;margin-top:1rem;">Recent Ratings (training)</h2>
+        <ul id="history"></ul>
+      </div>
+    </aside>
+
+    <main class="panel">
+      <h2 id="resultsTitle">Top-10 Recommendations</h2>
+      <div class="cards" id="cards"></div>
+    </main>
+  </div>
+
+  <footer>M6 Final Deployment Demo · Models trained on u1.base (80k ratings) · Evaluation on u1.test</footer>
+
+  <script src="demo_data.js"></script>
+  <script>
+    let data = null;
+
+    function stars(rating) {
+      const full = Math.round(rating);
+      return "★".repeat(full) + "☆".repeat(5 - full);
+    }
+
+    function showError(message) {
+      document.getElementById("cards").innerHTML =
+        `<p class="error">${message}</p>`;
+    }
+
+    function render() {
+      if (!data) return;
+
+      const uid = parseInt(document.getElementById("userSelect").value, 10);
+      const modelKey = document.getElementById("modelSelect").value;
+      const user = data.users.find((u) => u.user_id === uid);
+      if (!user) return;
+
+      const model = data.models.find((m) => m.key === modelKey);
+      const recs = user.recommendations[modelKey];
+      const metrics = data.metrics[modelKey];
+
+      document.getElementById("profile").innerHTML = `
+        <dt>User ID</dt><dd>${user.user_id}</dd>
+        <dt>Age / Gender</dt><dd>${user.age} / ${user.gender === "M" ? "Male" : "Female"}</dd>
+        <dt>Occupation</dt><dd>${user.occupation}</dd>
+      `;
+
+      document.getElementById("metrics").innerHTML = `
+        <div class="metric"><div class="val">${metrics.rmse}</div><div class="lbl">RMSE</div></div>
+        <div class="metric"><div class="val">${metrics.mae}</div><div class="lbl">MAE</div></div>
+        <div class="metric"><div class="val">${(metrics.p10 * 100).toFixed(1)}%</div><div class="lbl">P@10</div></div>
+      `;
+
+      document.getElementById("history").innerHTML = user.history
+        .map((h) => `<li>${h.title} <span>${"★".repeat(h.rating)}</span></li>`)
+        .join("");
+
+      document.getElementById("resultsTitle").textContent =
+        `Top-10 for User ${uid} · ${model.label}`;
+
+      document.getElementById("cards").innerHTML = recs
+        .map(
+          (r, i) => `
+        <div class="card" style="animation-delay:${i * 0.05}s">
+          <div class="rank">${i + 1}</div>
+          <div>
+            <div class="title">${r.title}</div>
+            <div class="year">${r.year || "—"}</div>
+          </div>
+          <div class="score">
+            <div class="pred">${r.predicted.toFixed(2)}</div>
+            <div class="stars">${stars(r.predicted)}</div>
+          </div>
+        </div>
+      `
+        )
+        .join("");
+    }
+
+    function initDemo() {
+      data = window.DEMO_DATA;
+      if (!data || !Array.isArray(data.users) || data.users.length === 0) {
+        showError(
+          "Demo data not found. Run <code>python export_demo_data.py</code> to generate demo_data.js."
+        );
+        return;
+      }
+
+      const userSelect = document.getElementById("userSelect");
+      userSelect.innerHTML = "";
+      data.users.forEach((u) => {
+        const opt = document.createElement("option");
+        opt.value = String(u.user_id);
+        opt.textContent = `User ${u.user_id} · ${u.age}y · ${u.occupation}`;
+        userSelect.appendChild(opt);
+      });
+
+      render();
+    }
+
+    document.getElementById("userSelect").addEventListener("change", render);
+    document.getElementById("modelSelect").addEventListener("change", render);
+    document.getElementById("btnRecommend").addEventListener("click", render);
+
+    initDemo();
+  </script>
+</body>
+</html>
